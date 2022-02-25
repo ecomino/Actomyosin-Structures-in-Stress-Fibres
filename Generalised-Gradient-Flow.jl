@@ -18,3 +18,8 @@ start_interval, end_interval = -5, 5
 result = optimize(f, start_interval, end_interval) # Defaults to Brent's method, can specify GoldenSection()
 Optim.lower_bound(result)
 Optim.upper_bound(result)
+
+# Discretise time (loop over n) and plot u against t
+#u_0 
+start loop
+un+1=un...

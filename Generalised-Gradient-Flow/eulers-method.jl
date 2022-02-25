@@ -1,4 +1,4 @@
-using Optim, Plots
+using Optim, Plots, LaTeXStrings
 
 Φ(u) = u^2/2 # function to minimise
 dΦ(u) = -u # its derivative
@@ -16,7 +16,7 @@ end
 
 # Plot Φ(u) against u
 x = collect(-u0:0.01:u0)
-plot(x, Φ.(x), label="Φ(u)=u^2/2", legend=:bottomright, color=:black, lw=0.25)
+plot(x, Φ.(x), label=L"\Phi(u)=u^2/2", legend=:bottomright, color=:black, lw=0.25)
 scatter!(u, Φ.(u), label="", markersize=3, markerstrokewidth=0, color=:blue)
 title!("Finding a Local Minimum")
 xlabel!("u")

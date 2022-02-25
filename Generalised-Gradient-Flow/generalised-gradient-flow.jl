@@ -1,4 +1,4 @@
-using Optim, Plots
+using Optim, Plots, LaTeXStrings
 
 # -----Generalised gradient flow----- #
 Φ(u) = u^2/2
@@ -15,15 +15,15 @@ for n in 1:N-1
 end
 
 x = collect(-u_1:0.01:u_1)
-plot(x, Φ.(x), label="Φ(u)=u^2/2", legend=:bottomright, color=:black, lw=0.25)
+plot(x, Φ.(x), label=L"\Phi(u)=u^2/2", legend=:bottomright, color=:black, lw=0.25)
 scatter!(U, Φ.(U), label="", markersize=3, markerstrokewidth=0, color=:blue)
 title!("Finding a Local Minimum")
 xlabel!("u")
 ylabel!("Φ(u)")
-savefig("generalised-gradient-flow-1.png")
+savefig("generalised-gradient-flow-1-1.png")
 
 scatter(collect(1:N).*Δt, U, legend=false, markersize=3, markerstrokewidth=0, color=:blue)
 title!("Finding a Local Minimum")
 xlabel!("t")
 ylabel!("u")
-savefig("generalised-gradient-flow-2.png")
+savefig("generalised-gradient-flow-1-2.png")

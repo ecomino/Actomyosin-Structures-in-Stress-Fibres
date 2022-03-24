@@ -15,7 +15,7 @@ for n in 1:N-1
 end
 
 x, y = collect(-20:0.1:20), collect(-20:0.1:20)
-plot(x, y, Φ, st=:surface, xlabel="u", ylabel="v", zlabel="Φ(u,v)", colorbar=false, color=cgrad(:blues, rev=true))
+plot(x, y, Φ, st=:surface, camera=[30,20], xlabel="u", ylabel="v", zlabel="Φ(u,v)", colorbar=false, color=cgrad([:blue,:cyan]))
 u_path, v_path = map(u -> u[1], U), map(u -> u[2], U)
 scatter!(u_path, v_path, Φ.(u_path, v_path), label=L"\Phi(u,v)=u^2/2+v^2/2", legend=:outerbottom, markersize=2, markerstrokewidth=0, color=:black)
 title!("Finding a Local Minimum")

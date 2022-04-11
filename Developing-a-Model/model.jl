@@ -1,7 +1,7 @@
 using Plots, Optim, LinearAlgebra
 
 const N = 10 # Number of actin filaments
-const L = 0.5 # Length of filaments
+const L = 1 # Length of filaments
 const Δt = 0.1 # Step size
 anim = Animation()
 
@@ -27,7 +27,10 @@ end
     # xn...is the previous
     # A_mat...is the overlap matrix and 
     # F...the pulling factor
-function E(x, xn, A_mat, F)
+function E(x, xn, A_mat)
+    F = 1 # Pulling factor
+    ξ = 1 # Coefficient of drag friction
+    η = 5 # Coefficient for cross-linker proteins drag
     res = ξ * sum((x-xn).^2/2*Δt) - x[1] * F
     for i in 1:N
         for j in 1:N
@@ -38,15 +41,14 @@ function E(x, xn, A_mat, F)
 end
 
 function main()
-    X = [-4 .* rand(N)] # Centre point of filaments
-    F = 1 # Pulling factor
     T = 10 # Number of time steps
+    X = [-2 .* rand(N)] # Centre point of filaments
     for n in 1:T-1
-        next_x = optimize(x->E(x, X[end], A(X[end]), F), X[end])
+        next_x = optimize(x -> E(x, X[end], A(X[end])), X[end])
         push!(X, Optim.minimizer(next_x))
         plot_fibres(X[end])
     end
 
-    gif(anim, "stress-fibres-4.gif", fps=5)
+    gif(anim, "stress-fibres.gif", fps=5)
 end
 

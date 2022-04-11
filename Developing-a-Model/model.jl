@@ -1,9 +1,17 @@
 using Plots, Optim, LinearAlgebra
 
 const N = 10 # Number of actin filaments
+const M = 5 # Number of motors
 const L = 1 # Length of filaments
 const Δt = 0.1 # Step size
+const P = rand((-1,1),N) # Polarities of filaments, left to right 1 represents -ve to +ve
 anim = Animation()
+
+#=struct Parameters
+    F::Float64 # Pulling factor
+    ξ::Float64 # Coefficient of drag friction
+    η::Float64 # Coefficient for cross-linker proteins drag
+end=#
 
 # Compute overlap between two fibres x1 and x2
 overlap(x1,x2) = max(L - abs(x1-x2), 0)
@@ -16,7 +24,8 @@ function plot_fibres(x)
     for n = 1:N
         a = x[n]-L/2 # Start of filament
         b = x[n]+L/2 # End of filament
-        plot!([a;b], [n;n], legend=false, lc=:blue, show=false, xlims=(first(X_span), last(X_span)), ylims=(0,N))
+        line_colour(n) = P[n] > 0 ? :blue : :red
+        plot!([a;b], [n;n], legend=false, lc=line_colour(n), show=false, xlims=(first(X_span), last(X_span)), ylims=(0,N))
     end
     plot!(show=true)
     frame(anim)
@@ -43,6 +52,8 @@ end
 function main()
     T = 10 # Number of time steps
     X = [-2 .* rand(N)] # Centre point of filaments
+    Y = [] # Centre point of motors
+    θ = [] # θ[i]... tuple of fibres motor i is connected to
     for n in 1:T-1
         next_x = optimize(x -> E(x, X[end], A(X[end])), X[end])
         push!(X, Optim.minimizer(next_x))

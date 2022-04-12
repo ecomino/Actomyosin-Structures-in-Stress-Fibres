@@ -39,7 +39,7 @@ end
 function E(x, xn, A_mat)
     F = 1 # Pulling factor
     ξ = 1 # Coefficient of drag friction
-    η = 5 # Coefficient for cross-linker proteins drag
+    η = 0.2 # Coefficient for cross-linker proteins drag
     res = ξ * sum((x-xn).^2/2*Δt) - x[1] * F
     for i in 1:N
         for j in 1:N

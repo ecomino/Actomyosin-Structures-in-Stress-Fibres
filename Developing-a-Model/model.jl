@@ -6,7 +6,7 @@ using StatsBase: mean
 const A = 0 # Left end point
 const B = 5 # Right end point
 const Δt = 0.1 # Step size
-const T = 2 # Number of time steps
+const T = 5 # Number of time steps
 
 # Filament parameters
 const N = 100 # Number of actin filaments
@@ -40,7 +40,7 @@ end
 
 # Compute overlap between two fibres x1 and x2
 overlap(x1,x2) = max(L - abs(x1-x2), 0)
-# Symmetric Matrix where O[i,j] is half the overlap between filament i and j and diag = 0
+# Symmetric Matrix where O[i,j] is half the overlap between filament i and j and diagonal = 0 (filament can't overlap with self)
 O(x) = [x1 == x2 ? 0 : overlap(x1,x2) for x1 in x, x2 in x] 
 
 function plot_sim(x,y,t)
@@ -121,16 +121,14 @@ function update_cf(x,y)
     end
 
     m_status = (!isempty).(y) # m_status[m]... 1 if motor m is currently attached to filaments, 0 otherwise
-    # @show m_status
+    attached_count = sum(m_status)
+    unattached_count = M - attached_count
     
-    # Add motor-filament attachment randomly (only if the filaments overlap and are close to each other
-    num_to_have = rand(Poisson(λ))
-    # @show num_to_have
-    num_attach = min(max(num_to_have-sum(m_status), 0), M) # Determine number of motors to reattach
-    # @show num_attach
-    to_attach = sample(findall(==(0),m_status), num_attach)
-    # @show to_attach
-    for m in to_attach
+    # Add motor-filament attachment randomly
+    desired_attached_count = min(M,rand(Poisson(λ)))
+    to_attach_count = min(max(0,desired_attached_count-attached_count),unattached_count)
+    motors_to_attach = sample(findall(==(0),m_status), to_attach_count)
+    for m in motors_to_attach
         y[m] = gen_cf(m,x)
     end
 
@@ -141,7 +139,7 @@ function main()
     X = [vcat(5 .*rand(N), 5 .*rand(M),A,B)] # Centre point of N filaments, M motors and focal tesions centred at end points [A,B]
     Y = [[] for m in 1:M] # Y[m]...List of fibres connected to motor m
     # Generate filament-motor connections
-    for m in sample(1:M,7, replace=false)
+    for m in sample(1:M,round(Int,λ),replace=false)
         Y[m] = gen_cf(m, X[end])
     end
     # Evolve simulation

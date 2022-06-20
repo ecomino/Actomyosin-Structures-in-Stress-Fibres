@@ -7,7 +7,7 @@ using StatsBase: mean
 const A = 0 # Left end point
 const B = 5 # Right end point
 const Δt = 0.1 # Step size
-const T = 100 # Number of time steps
+const T = 20 # Number of time steps
 
 # Filament parameters
 const N = 30 # Number of actin filaments
@@ -33,12 +33,11 @@ function plot_sim(x,y,t)
     # Set up domain
     plot(xlims=(first(X_span), last(X_span)), ylims=(0,N), title="Time = $t")
     # Display filaments
-    for n = 1:N
-        a = x[n]-L/2 # Start of filament
-        b = x[n]+L/2 # End of filament
-        line_colour(n) = P[n] > 0 ? :blue : :red
-        plot!([a,b], [n,n], legend=false, lc=line_colour(n))
-    end
+    n = 1:N
+    a = x[n] .- L/2 # Start of filaments
+    b = x[n] .+ L/2 # End of filaments
+    line_colour = reshape([p > 0 ? :blue : :red for p in P], 1, length(P)) # Polarity of filaments
+    plot!([a b]', [n n]', legend=false, lc=line_colour)
     # Display motors and their attachments
     for m = N+1:N+M
         cf = y[m-N]
@@ -126,6 +125,7 @@ end
 function main()
     X = [vcat(B .*rand(N), B .*rand(M),A,B)] # Centre point of N filaments, M motors and focal tesions centred at end points [A,B]
     Y = [[] for m in 1:M] # Y[m]...List of fibres connected to motor m
+    if O(X[end][1:N])
     ft_pos = [] # Will store position of focal tesions
     # Generate filament-motor connections
     for m in sample(1:M,round(Int,λ),replace=false)
@@ -133,7 +133,7 @@ function main()
     end
     # Evolve simulation
     for t in 1:T
-        println("Iteration $t")
+        println("Iteration $t/$T")
         plot_sim(X[end],Y,t)
         next_x = optimize(x -> E(x, X[end], O(X[end][1:N]), Oᵩ(X[end][1:N],X[end][end-1:end]), Y), X[end]) # , LBFGS(); autodiff = :forward
         push!(X, Optim.minimizer(next_x))
@@ -141,13 +141,12 @@ function main()
         push!(ft_pos, X[end][end-1:end])
     end
     # Output results
-    gif(anim, "focal-tesions-5.gif", fps=5)
+    gif(anim, "bottleneck-testing-2.gif", fps=5)
     return ft_pos
 end
 
 ft_pos = main()
 
-# Test plotting time, think about reducing
 # Starting without a break
 # Check motor reattachments
 # Tam supplementary material, Oelz supp for crosslinker drag (look at units!)

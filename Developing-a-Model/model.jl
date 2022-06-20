@@ -1,47 +1,32 @@
 using Plots, Optim
 using Distributions: Poisson, sample
 using StatsBase: mean
+# using ForwardDiff
 
 # Simulation parameters
 const A = 0 # Left end point
 const B = 5 # Right end point
 const Δt = 0.1 # Step size
-const T = 5 # Number of time steps
+const T = 100 # Number of time steps
 
 # Filament parameters
-const N = 100 # Number of actin filaments
+const N = 30 # Number of actin filaments
 const L = 1 # Length of filaments
 
 # Motor parameters
-const M = 25 # Maximum number of motors
+const M = 15 # Maximum number of motors
 const λ = 0.75*M # Average number of motors currently attached
 const β = 0.05 # Probability motor detaches per second
 P = rand((-1,1),N) # Polarities of filaments, left to right 1 represents -ve to +ve
 
 anim = Animation()
 
-#=struct Parameters
-    F::Float64 # Pulling factor
-    ξ::Float64 # Coefficient of drag friction
-    η::Float64 # Coefficient for cross-linker proteins drag
-end=#
-
-#=
-struct Motor
-    f1::Int64 # Index of first connected fibre
-    f2::Int64 # Index of other connected fibre
-end
-
-# Given a motor, return tuple of indexes of connected filaments 
-function get_filaments(m::Motor)
-    return (m.f1, m.f2)
-end
-=#
-
 # Compute overlap between two fibres x1 and x2
 overlap(x1,x2) = max(L - abs(x1-x2), 0)
-# Symmetric Matrix where O[i,j] is half the overlap between filament i and j and diagonal = 0 (filament can't overlap with self)
-O(x) = [x1 == x2 ? 0 : overlap(x1,x2) for x1 in x, x2 in x] 
+# Symmetric matrix where O[i,j] is half the overlap between filament i and j and diagonal = 0 (filament can't overlap with self)
+O(x) = [x1 == x2 ? 0 : overlap(x1,x2) for x1 in x, x2 in x]
+# An Nx2 matrix when O[i,j] gives the overlap between filament i and focal tesion j
+Oᵩ(x,f) = [overlap(xi,fj) for xi in x, fj in f]
 
 function plot_sim(x,y,t)
     X_span = A-L/2:B+L/2 # Range for filament movement
@@ -65,6 +50,7 @@ function plot_sim(x,y,t)
     # Display focal tesions
     plot!([x[end-1]-L/2;x[end-1]+L/2], [N/2;N/2], legend=false, lc=:black, linewidth=2)
     plot!([x[end]-L/2;x[end]+L/2], [N/2;N/2], legend=false, lc=:black, linewidth=2)
+    plot!(show=true)
     frame(anim)
 end
 
@@ -73,7 +59,7 @@ end
     # xn...the previous iterate
     # O_mat...the matrix storing the overlap between filaments
     # y...y[m] stores the list of filaments motor m is connected to
-function E(x, xn, O_mat, y)
+function E(x, xn, O_mat, Oᵩ_mat, y)
     
     # Parameters
     F = 0.2 # Pulling factor
@@ -81,14 +67,17 @@ function E(x, xn, O_mat, y)
     η = 0.5 # Coefficient for cross-linker proteins drag
     Fs = 1 # Motor stall force
     Vm = 1 # Maximum motor velocity
+    ρ = 0.001 # Coefficient for focal tesion drag
     
     res = ξ * sum((x-xn).^2/(2*Δt)) - x[1] * F 
     
     # Filament movement
     for i in 1:N
-        #res += ξ * (x[i]-xn[i])^2/(2*Δt)
         for j in 1:N
-            res += η * O_mat[i,j] * (x[i]-x[j]-(xn[i]-xn[j]))^2/(2*Δt) 
+            res += η * O_mat[i,j] * (x[i]-x[j]-(xn[i]-xn[j]))^2/(2*Δt) # Cross linkers
+        end
+        for j in N+M+1:N+M+2
+            res += ρ * Oᵩ_mat[i,j-N-M] * (x[i]-x[j]-(xn[i]-xn[j]))^2/(2*Δt)
         end
     end
     
@@ -106,7 +95,6 @@ mf_overlap(xm,x1) = x1 - L/2 < xm < x1 + L/2
 connected(xm,x1,x2) = x1 - L/2 < xm < x1 + L/2 && x2 - L/2 < xm < x2 + L/2
 
 function gen_cf(m,x)
-    # @show m,x
     all_cf = [n for n in 1:N if mf_overlap(x[N+m],x[n])]
     length(all_cf) ≥ 2 ? (return sort!(sample(all_cf,2,replace=false))) : (return [])
 end
@@ -136,21 +124,32 @@ function update_cf(x,y)
 end
 
 function main()
-    X = [vcat(5 .*rand(N), 5 .*rand(M),A,B)] # Centre point of N filaments, M motors and focal tesions centred at end points [A,B]
+    X = [vcat(B .*rand(N), B .*rand(M),A,B)] # Centre point of N filaments, M motors and focal tesions centred at end points [A,B]
     Y = [[] for m in 1:M] # Y[m]...List of fibres connected to motor m
+    ft_pos = [] # Will store position of focal tesions
     # Generate filament-motor connections
     for m in sample(1:M,round(Int,λ),replace=false)
         Y[m] = gen_cf(m, X[end])
     end
     # Evolve simulation
     for t in 1:T
-        plot_sim(vcat(X[end],Y[end]),Y,t)
-        next_x = optimize(x -> E(x, X[end], O(X[end][1:N]), Y), X[end])
+        println("Iteration $t")
+        plot_sim(X[end],Y,t)
+        next_x = optimize(x -> E(x, X[end], O(X[end][1:N]), Oᵩ(X[end][1:N],X[end][end-1:end]), Y), X[end]) # , LBFGS(); autodiff = :forward
         push!(X, Optim.minimizer(next_x))
         Y = update_cf(X[end],Y)
+        push!(ft_pos, X[end][end-1:end])
     end
     # Output results
-    gif(anim, "focal-tesions-2.gif", fps=5)
+    gif(anim, "focal-tesions-5.gif", fps=5)
+    return ft_pos
 end
 
-main()
+ft_pos = main()
+
+# Test plotting time, think about reducing
+# Starting without a break
+# Check motor reattachments
+# Tam supplementary material, Oelz supp for crosslinker drag (look at units!)
+# Add spring and calculate force at each time step
+# Variation in parameters affecting contractile force, what causes the system to break

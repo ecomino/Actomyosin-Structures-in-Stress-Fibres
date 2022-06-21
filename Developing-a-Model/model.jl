@@ -11,10 +11,10 @@ const T = 20 # Number of time steps
 
 # Filament parameters
 const N = 30 # Number of actin filaments
-const L = 1 # Length of filaments
+const L = 1 # Length (μm) of filaments 
 
 # Motor parameters
-const M = 15 # Maximum number of motors
+const M = 15 # Maximum number of myosin motors
 const λ = 0.75*M # Average number of motors currently attached
 const β = 0.05 # Probability motor detaches per second
 P = rand((-1,1),N) # Polarities of filaments, left to right 1 represents -ve to +ve
@@ -62,11 +62,11 @@ function E(x, xn, O_mat, Oᵩ_mat, y)
     
     # Parameters
     F = 0.2 # Pulling factor
-    ξ = 1 # Coefficient of drag friction
-    η = 0.5 # Coefficient for cross-linker proteins drag
-    Fs = 1 # Motor stall force
-    Vm = 1 # Maximum motor velocity
-    ρ = 0.001 # Coefficient for focal tesion drag
+    ξ = 1 # Drag on filaments due to moving through the extracellular matrix (think about units!)
+    η = 15 # Effective viscous drag (pNs/μm^2) due to cross-linker proteins
+    Fs = 5 # Motor stall force (pN)
+    Vm = 0.5 # Maximum (load-free) motor velocity (μm/s)
+    ρ = 0.001 # Drag on filaments due to climbing through extracellular matrix (think about units!)
     
     res = ξ * sum((x-xn).^2/(2*Δt)) - x[1] * F 
     
@@ -142,13 +142,10 @@ function main()
     end
     # Output results
     gif(anim, "bottleneck-testing-2.gif", fps=5)
-    return ft_pos
 end
 
-ft_pos = main()
+main()
 
-# Starting without a break
-# Check motor reattachments
 # Tam supplementary material, Oelz supp for crosslinker drag (look at units!)
 # Add spring and calculate force at each time step
 # Variation in parameters affecting contractile force, what causes the system to break

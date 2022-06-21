@@ -7,15 +7,15 @@ using StatsBase: mean
 const A = 0 # Left end point
 const B = 5 # Right end point
 const Δt = 0.1 # Step size
-const T = 20 # Number of time steps
+const T = 500 # Number of time steps
 
 # Filament parameters
 const N = 30 # Number of actin filaments
 const L = 1 # Length of filaments
 
 # Motor parameters
-const M = 15 # Maximum number of motors
-const λ = 0.75*M # Average number of motors currently attached
+const M = 20 # Maximum number of motors
+const λ = round(Int,0.75*M) # Average number of motors currently attached
 const β = 0.05 # Probability motor detaches per second
 P = rand((-1,1),N) # Polarities of filaments, left to right 1 represents -ve to +ve
 
@@ -47,8 +47,7 @@ function plot_sim(x,y,t)
         end
     end
     # Display focal tesions
-    plot!([x[end-1]-L/2;x[end-1]+L/2], [N/2;N/2], legend=false, lc=:black, linewidth=2)
-    plot!([x[end]-L/2;x[end]+L/2], [N/2;N/2], legend=false, lc=:black, linewidth=2)
+    plot!([x[end-1]-L/2 x[end]-L/2;x[end-1]+L/2 x[end]+L/2], [N/2 N/2; N/2 N/2], legend=false, lc=:black, linewidth=2)
     plot!(show=true)
     frame(anim)
 end
@@ -107,29 +106,39 @@ function update_cf(x,y)
         end
     end
 
+    @show y
     m_status = (!isempty).(y) # m_status[m]... 1 if motor m is currently attached to filaments, 0 otherwise
+    @show m_status
     attached_count = sum(m_status)
+    @show attached_count
     unattached_count = M - attached_count
+    @show unattached_count
     
     # Add motor-filament attachment randomly
     desired_attached_count = min(M,rand(Poisson(λ)))
+    @show desired_attached_count
     to_attach_count = min(max(0,desired_attached_count-attached_count),unattached_count)
+    @show to_attach_count
     motors_to_attach = sample(findall(==(0),m_status), to_attach_count)
+    @show motors_to_attach
     for m in motors_to_attach
         y[m] = gen_cf(m,x)
     end
-
+    @show y
+    @show (!isempty).(y)
     return y # Updated list of motor-filament connections
 end
 
 function main()
     X = [vcat(B .*rand(N), B .*rand(M),A,B)] # Centre point of N filaments, M motors and focal tesions centred at end points [A,B]
+    # Ensure no initial breakage
+    # while 0 ∈ sum(O(X[end]),dims=1)
+    #     X = [vcat(B .*rand(N), B .*rand(M),A,B)]
+    # end
     Y = [[] for m in 1:M] # Y[m]...List of fibres connected to motor m
-    if O(X[end][1:N])
-    ft_pos = [] # Will store position of focal tesions
     # Generate filament-motor connections
-    for m in sample(1:M,round(Int,λ),replace=false)
-        Y[m] = gen_cf(m, X[end])
+    for m in sample(1:M,λ,replace=false) 
+        Y[m] = gen_cf(m,X[end])
     end
     # Evolve simulation
     for t in 1:T
@@ -141,13 +150,11 @@ function main()
         push!(ft_pos, X[end][end-1:end])
     end
     # Output results
-    gif(anim, "bottleneck-testing-2.gif", fps=5)
-    return ft_pos
+    gif(anim, "big-test.gif", fps=5)
 end
 
-ft_pos = main()
+main()
 
-# Starting without a break
 # Check motor reattachments
 # Tam supplementary material, Oelz supp for crosslinker drag (look at units!)
 # Add spring and calculate force at each time step

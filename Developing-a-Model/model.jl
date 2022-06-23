@@ -145,7 +145,6 @@ function main(PLOTSIM)
         cf = k * (X[end][end] - X[end][end-1] - (B - A)) # Calculate current contractile force between focal tesions
         push!(contractile_force, cf)
         PLOTSIM && plot_sim(X[end],Y,t)
-        # next_x = Optim.minimizer(optimize(x -> E(x, X[end], O(X[end][1:N]), Oᵩ(X[end][1:N],X[end][end-1:end]), Y), X[end]))
         od = OnceDifferentiable(x -> E(x, X[end], O(X[end][1:N]), Oᵩ(X[end][1:N],X[end][end-1:end]), Y), X[end]; autodiff = :forward)
         next_x = Optim.minimizer(optimize(od, X[end], LBFGS()))
         push!(X, next_x)

@@ -74,7 +74,6 @@ function plot_sim(x,y,t)
     # Display focal tesions
     plot!([x[focal_tesions[1]]-L/2 x[focal_tesions[2]]-L/2;x[focal_tesions[1]]+L/2 x[focal_tesions[2]]+L/2], [N/2 N/2; N/2 N/2], legend=false, lc=:black, linewidth=2)
     plot!(show=true)
-    savefig("$t")
     frame(anim)
 end
 
@@ -155,20 +154,12 @@ end
 function main(PLOTSIM)
     X = [vcat(B .*rand(N), B .*rand(M),A,B)] # Centre point of N filaments, M motors and focal tesions centred at end points [A,B]
     # Ensure no initial breakage
-    Y = [[] for m in 1:M] # Y[m]...List of fibres attached to motor m
-    t=1
     count = 0
     while is_broken(X[end][structure])
         count > 10 && error("Could not find valid initial structure. Try adding more filaments, or shrinking the interval.")
-        println("Initial structure invalid. Has fiedler value: ", eigvals(laplace(X[end][structure]))[2])
-        plot_sim(X[end],Y,"3Unaccepted $(count)")
-        display(adj(O(X[end][structure])))
-        println("Laplacian")
-        display(laplace(X[end][structure]))
         count += 1
         X = [vcat(B .*rand(N), B .*rand(M),A,B)]
     end
-    plot_sim(X[end],Y,"5Accepted")
     println("Accepted initial structure")
     display(adj(O(X[end][structure])))
     display(deg(O(X[end][structure])))

@@ -13,8 +13,7 @@ const T = 1000 # Number of time steps
 const N = 2 # Number of actin filaments, use odd number to ensure they do not visually overlap with focal tesions
 const filaments = 1:N # Indexes of filaments
 const L = 1.0 # Length (μm) of filaments
-# P = rand((-1,1),N) # Polarities of filaments, left to right 1 represents -ve to +ve
-P = [-1,1]
+P = rand((-1,1),N) # Polarities of filaments, left to right 1 represents -ve to +ve
 
 # Motor parameters
 const M = 1 # Maximum number of myosin motors
@@ -33,6 +32,25 @@ overlap(x1,x2) = max(L - abs(x1-x2), 0.0)
 O(x) = [x1 == x2 ? 0.0 : overlap(x1,x2) for x1 in x, x2 in x]
 # An Nx2 matrix when O[i,j] gives the overlap between filament i and focal tesion j
 Oᵩ(x,f) = [overlap(xi,fj) for xi in x, fj in f]
+# Compute adjacency matrix of overlap matrix
+adj(O) = (O).!==(0.0)
+# Compute degree matrix of overlap matrix
+deg(O) = [i == j ? Float64(sum(O[i,:].!==(0.0))) : 0.0 for i in 1:size(O)[1], j in 1:size(O)[2]]
+# Compute Laplacian matrix for list of filaments
+function laplace(x)
+    o = O(x)
+    L = deg(o) - adj(o)
+    return L
+end
+# Determine whether filaments are disconnected (and hence if fibre is broken), return true if structure is disconnected
+function is_broken(x)
+    # Simple check if one fibre is disconnected
+    0.0 ∈ sum(O(x),dims=1) && return true
+    # If the second smallest eigenvalue of Laplacian matrix (a.k.a. Fiedler value) is greater than 0, the graph is connected
+    fiedler = eigvals(laplace(x))[2]
+    status = fiedler > 0.0 ? false : true
+    return status
+end
 
 function plot_sim(x,y,t)
     padding = 2*L
@@ -139,6 +157,18 @@ end
 function main(PLOTSIM,WRITESIM,filename)
     df = DataFrame(Time=Int64[], FilamentPos=Vector{Vector{Float64}}(), MotorPos=Vector{Vector{Float64}}(), FocalTesionPos=Vector{Vector{Float64}}(), MotorConnections=Vector{Vector{Vector{Int64}}}(), ContractileForce=Float64[], Other=String[])
     X = [vcat(B .*rand(N), B .*rand(M),A,B)] # Centre point of N filaments, M motors and focal tesions centred at end points [A,B]
+    # Ensure no initial breakage
+    count = 0
+    while is_broken(X[end][structure])
+        count > 10 && error("Could not find valid initial structure. Try adding more filaments, or shrinking the interval.")
+        count += 1
+        X = [vcat(B .*rand(N), B .*rand(M),A,B)]
+    end
+    println("Accepted initial structure")
+    display(adj(O(X[end][structure])))
+    display(deg(O(X[end][structure])))
+    display(laplace(X[end][structure]))
+    println("Has fiedler value: ", eigvals(laplace(X[end][structure]))[2])
     Y = [Int64[] for m in 1:M] # Y[m]...List of fibres attached to motor m
     # Generate filament-motor connections
     for m in sample(1:M,λ,replace=false)
@@ -148,6 +178,10 @@ function main(PLOTSIM,WRITESIM,filename)
     # Evolve simulation
     for t in 1:T
         println("---Iteration $t/$T---")
+        if is_broken(X[end][structure])
+            println("Fibroblast is broken.")
+            break
+        end
         cf = k * (X[end][focal_tesions[2]] - X[end][focal_tesions[1]] - (B - A)) # Calculate current contractile force between focal tesions
         WRITESIM && push!(df, (t, round.(X[end][filaments],digits=6), round.(X[end][motors],digits=6), round.(X[end][focal_tesions],digits=6), Y, round(cf,digits=6), isempty(Y[1]) ? "Motor dettached" : "Motor attached"))
         push!(contractile_force, cf)
@@ -177,6 +211,3 @@ for i in 1:5
 end
 plot(1:T,conf,title="Single motor contractile forces")
 savefig("single-motor-contractile-force-a.png")
-
-## TODO
-# Variation in parameters affecting contractile force, what causes the system to break

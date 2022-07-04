@@ -7,7 +7,7 @@ using LinearAlgebra: eigvals
 const A = 0.0 # Left end point
 const B = 1.1 # Right end point
 const Δt = 0.1 # Step size
-const T = 1000 # Number of time steps
+const T = 100 # Number of time steps
 
 # Filament parameters
 const N = 2 # Number of actin filaments, use odd number to ensure they do not visually overlap with focal tesions
@@ -19,13 +19,21 @@ P = [-1,1]
 # Motor parameters
 const M = 1 # Maximum number of myosin motors
 const motors = N+1:N+M # Indexes of motors
-const λ = round(Int,0.75*M) # Average number of motors currently attached
+const λ = floor(Int,0.75*M) # Average number of motors currently attached
 const β = 0.05 # Probability motor detaches per second
 
 # Focal tesion parameters
 const k = 1.0 # Stiffness between focal tesions
 const focal_tesions = N+M+1:N+M+2 # Indexes of focal tesions
 const structure = [filaments; focal_tesions] # Indexes of all filaments and focal tesions
+
+# Energy functional parameters
+const F = 0.0 #000001 # Pulling factor
+const ξ = 0.0000001 # Drag on filaments due to moving through the cytoplasm (think about units!)
+const η = 15.0 # Effective viscous drag (pNs/μm^2) due to cross-linker proteins
+const Fs = 5.0 # Motor stall force (pN)
+const Vm = 0.5 # Maximum (load-free) motor velocity (μm/s)
+const ρ = 1.0 # Drag on filaments due to climbing through extracellular matrix (think about units!)
 
 # Compute overlap between two fibres x1 and x2
 overlap(x1,x2) = max(L - abs(x1-x2), 0.0)
@@ -67,15 +75,7 @@ end
     # O_mat...the matrix storing the overlap between filaments
     # Oᵩ_mat... the matrix storing the overlap between filaments and focal tesions
     # y...y[m] stores the list of filaments motor m is attached to
-function E(x, xn, O_mat, Oᵩ_mat, y)
-    
-    # Parameters
-    F = 0.0#000001 # Pulling factor
-    ξ = 0.0000001 # Drag on filaments due to moving through the cytoplasm (think about units!)
-    η = 15.0 # Effective viscous drag (pNs/μm^2) due to cross-linker proteins
-    Fs = 5.0 # Motor stall force (pN)
-    Vm = 0.5 # Maximum (load-free) motor velocity (μm/s)
-    ρ = 1.0 # Drag on filaments due to climbing through extracellular matrix (think about units!)
+function E(x, xn, O_mat, Oᵩ_mat, y)    
     
     res = -x[1] * F 
     
@@ -94,13 +94,21 @@ function E(x, xn, O_mat, Oᵩ_mat, y)
     for i in motors
         af = y[i-N] # Indices of attached filaments to current motor
         for j in 1:length(af)
-            res += Fs/Vm * (x[af[j]] - x[i] - (xn[af[j]] - xn[i]))^2/(2*Δt) + Fs * (x[af[j]] - x[i]) * P[af[j]]
+            res += Fs/Vm * (x[af[j]] - x[i] - (xn[af[j]] - xn[i]))^2/(2*Δt) - Fs * (x[af[j]] - x[i]) * P[af[j]]
         end
     end
 
     # Focal tesion spring attachment
     res += k/2 * (x[focal_tesions[2]] - x[focal_tesions[1]] - (B - A))^2
 
+    return res
+end
+
+function calculate_motor_force(af,m,x,xn)
+    res = 0.0
+    for j in 1:length(af)
+        res += Fs/Vm * (x[af[j]] - x[N+m] - (xn[af[j]] - xn[N+m]))/Δt - Fs * P[af[j]] 
+    end
     return res
 end
 
@@ -136,20 +144,34 @@ function update_af(x,y)
     return y # Updated list of motor-filament connections
 end
 
+function serialize_motor_connections(Y)
+    output = "[ "
+    for y in Y
+        if isempty(y)
+            output *= "[] "
+        else
+            output *= "[$(y[1]),$(y[2])] "
+        end
+    end
+    return output * "]"
+end
+
 function main(PLOTSIM,WRITESIM,filename)
-    df = DataFrame(Time=Int64[], FilamentPos=Vector{Vector{Float64}}(), MotorPos=Vector{Vector{Float64}}(), FocalTesionPos=Vector{Vector{Float64}}(), MotorConnections=Vector{Vector{Vector{Int64}}}(), ContractileForce=Float64[], Other=String[])
+    df = DataFrame(Time=Int64[], FilamentPos=Vector{Vector{Float64}}(), MotorPos=Vector{Vector{Float64}}(), FocalTesionPos=Vector{Vector{Float64}}(), MotorConnections=String[], ContractileForce=Float64[], Other=String[])
     X = [vcat(B .*rand(N), B .*rand(M),A,B)] # Centre point of N filaments, M motors and focal tesions centred at end points [A,B]
+    # X = [[0.90, 1.15, 1.03, 0, 2.05]]
     Y = [Int64[] for m in 1:M] # Y[m]...List of fibres attached to motor m
     # Generate filament-motor connections
     for m in sample(1:M,λ,replace=false)
         Y[m] = gen_af(m, X[end])
     end
+    Y = [[1,2]]
     contractile_force = [] # Contractile force between focal tesions
     # Evolve simulation
     for t in 1:T
         println("---Iteration $t/$T---")
         cf = k * (X[end][focal_tesions[2]] - X[end][focal_tesions[1]] - (B - A)) # Calculate current contractile force between focal tesions
-        WRITESIM && push!(df, (t, round.(X[end][filaments],digits=6), round.(X[end][motors],digits=6), round.(X[end][focal_tesions],digits=6), Y, round(cf,digits=6), isempty(Y[1]) ? "Motor dettached" : "Motor attached"))
+        (WRITESIM && t!=1) && push!(df, (t, round.(X[end][filaments],digits=6), round.(X[end][motors],digits=6), round.(X[end][focal_tesions],digits=6), serialize_motor_connections(Y), round(cf,sigdigits=6), isempty(Y[1]) ? "Motor dettached, $(overlap(X[end][1], X[end][2])) filament overlap, motor force $(calculate_motor_force(Y[1],1,X[end],X[end-1]))"  : "Motor attached, $(overlap(X[end][1], X[end][2])) filament overlap, motor force $(calculate_motor_force(Y[1],1,X[end],X[end-1]))"))
         push!(contractile_force, cf)
         PLOTSIM && plot_sim(X[end],Y,t)
         od = OnceDifferentiable(x -> E(x, X[end], O(X[end][filaments]), Oᵩ(X[end][filaments], X[end][focal_tesions]), Y), X[end]; autodiff=:forward)
@@ -163,20 +185,20 @@ function main(PLOTSIM,WRITESIM,filename)
     return contractile_force
 end;
 
-# anim = Animation()
-# con = main(true,true,"write-csv");
+anim = Animation()
+# con = main(true,true,"params-rho-1");
 # plot(1:T,con,legend=false,title="")
-# savefig("system-testing-8iii-motor.png")
+# savefig("params-rho-1-cf.png")
 
 conf = []
 for i in 1:5
     println("Run $i")
     global anim = Animation()
-    con = main(true,true,"single-motor-run-a-$(i)")
+    con = main(true,true,"single-motor-behaviours-reverse-$(i)")
     push!(conf,con)
 end
-plot(1:T,conf,title="Single motor contractile forces")
-savefig("single-motor-contractile-force-a.png")
+plot(1:T,conf,title="Single Motor Contractile Forces",xlabel="Time",ylabel="Contractile Force")
+savefig("single-motor-behaviours-reverse-cf.png")
 
 ## TODO
 # Variation in parameters affecting contractile force, what causes the system to break

@@ -4,19 +4,18 @@ using StatsBase: mean
 
 # Simulation parameters
 const A = 0.0 # Left end point
-const B = 1.1 # Right end point
+const B = 4.0 # Right end point
 const Δt = 0.1 # Step size
 const T = 100 # Number of time steps
 
 # Filament parameters
-const N = 2 # Number of actin filaments, use odd number to ensure they do not visually overlap with focal adhesions
+const N = 10 # Number of actin filaments, use odd number to ensure they do not visually overlap with focal adhesions
 const filaments = 1:N # Indexes of filaments
 const L = 1.0 # Length (μm) of filaments
-# P = rand((-1,1),N) # Polarities of filaments, left to right 1 represents -ve to +ve
-P = [-1,1]
+P = rand((-1,1),N) # Polarities of filaments, left to right 1 represents -ve to +ve
 
 # Motor parameters
-const M = 1 # Maximum number of myosin motors
+const M = 3 # Maximum number of myosin motors
 const motors = N+1:N+M # Indexes of motors
 const λ = floor(Int,0.75*M) # Average number of motors currently attached
 const β = 0.05 # Probability motor detaches per second
@@ -158,7 +157,7 @@ end
 function main(PLOTSIM,WRITESIM,filename)
     df = DataFrame(Time=Int64[], FilamentPos=Vector{Vector{Float64}}(), MotorPos=Vector{Vector{Float64}}(), FocalTesionPos=Vector{Vector{Float64}}(), MotorConnections=String[], ContractileForce=Float64[], Other=String[])
     X = [vcat(B .* rand(N), B .* rand(M), A, B)] # Centre point of N filaments, M motors and focal adhesions centred at end points [A,B]
-    Y = [Int64[] for m in 1:M] # Y[m]...List of fibres attached to motor m
+    Y = [[] for m in 1:M] # Y[m]...List of fibres attached to motor m
     # Generate filament-motor connections
     for m in sample(1:M,λ,replace=false)
         Y[m] = gen_af(m, X[end])
@@ -166,7 +165,7 @@ function main(PLOTSIM,WRITESIM,filename)
     contractile_force = [] # Contractile force between focal adhesions
     # Evolve simulation
     for t in 1:T
-        println("---Iteration $t/$T---")
+        println("Iteration $t/$T")
         cf = k * (X[end][focal_adhesions[2]] - X[end][focal_adhesions[1]] - (B - A)) # Calculate current contractile force between focal adhesions
         (WRITESIM && t!=1) && push!(df, (t, round.(X[end][filaments],digits=6), round.(X[end][motors],digits=6), round.(X[end][focal_adhesions],digits=6), serialize_motor_connections(Y), round(cf,sigdigits=6), isempty(Y[1]) ? "Motor dettached" : "Motor attached"))
         push!(contractile_force, cf)
@@ -188,14 +187,12 @@ anim = Animation()
 # savefig("params-rho-1-cf.png")
 
 conf = []
-for i in 1:5
-    println("Run $i")
+for i in 1:10
+    println("---Run $i---")
     global anim = Animation()
-    con = main(true,false,"long-run-reverse-k-100-rho-10-$(i)")
+    global P = rand((-1,1),N)
+    con = main(true,false,"longer-structure-$(N)-filaments-$(M)-motors-$(T)-time-run-$(i)")
     push!(conf,con)
 end
-plot(1:T,conf,title="Single Motor Contractile Forces",xlabel="Time",ylabel="Contractile Force")
-savefig("long-run-reverse-k-100-rho-10-cf.png")
-
-## TODO
-# Variation in parameters affecting contractile force, what causes the system to break
+plot(1:T,conf,title="Contractile Forces",xlabel="Time",ylabel="Contractile Force")
+savefig("longer-structure-$(N)-filaments-$(M)-motors-$(T)-time-cf.png")

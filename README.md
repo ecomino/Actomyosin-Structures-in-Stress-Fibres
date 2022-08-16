@@ -1,2 +1,3 @@
-# Numerics Exercises
-Introductory exercises in numerical methods to prepare for honours thesis
+#  Actomyosin Structures in Fibroblasts
+
+Code base for honours thesis

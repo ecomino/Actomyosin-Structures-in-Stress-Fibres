@@ -1,72 +1,3 @@
-using Plots, Optim, DataFrames, CSV
-using Distributions: Poisson, sample
-using StatsBase: mean
-
-# Simulation parameters
-const A = 0.0 # Left end point
-const B = 1.0 # Right end point
-const Δt = 0.1 # Step size
-const T = 100 # Number of time steps
-
-# Filament parameters
-const N = 30 # Number of actin filaments, use odd number to ensure they do not visually overlap with focal adhesions
-const filaments = 1:N # Indexes of filaments
-const L = 1.0 # Length (μm) of filaments
-P = rand((-1,1),N) # Polarities of filaments, left to right 1 represents -ve to +ve
-
-# Motor parameters
-const M = 10 # Maximum number of myosin motors
-const motors = N+1:N+M # Indexes of motors
-const λ = floor(Int,0.75*M) # Average number of motors currently attached
-const β = 0.05 # Probability motor detaches per second
-υ = 0.0 # Motor drop off point, how far the motor has to be from a connected filament's plus end to detach
-@assert υ < L/2 && υ ≥ 0.0
-
-# focal adhesion parameters
-const l = 0.5 # Length (μm) of focal adhesions
-const focal_adhesions = N+M+1:N+M+2 # Indexes of focal adhesions
-const structure = [filaments; focal_adhesions] # Indexes of all filaments and focal adhesions
-
-# Energy functional parameters
-const ξ = 0.0000001 # Drag on filaments due to moving through the cytoplasm (think about units!)
-const η = 0.01*15.0 # Effective viscous drag (pNs/μm^2) due to cross-linker proteins
-const Fs = 5.0 # Motor stall force (pN)
-const Vm = 0.5 # Maximum (load-free) motor velocity (μm/s)
-const ρ = 10.0 # Drag on filaments due to climbing through extracellular matrix (think about units!)
-const k = 10.0 # Stiffness between focal adhesions
-
-# Symmetric matrix where O[i,j] is the overlap between filament i and j and diagonal = 0 (filament can't overlap with self)
-O(x) = [x1 == x2 ? 0.0 : max(L - abs(x1-x2), 0.0) for x1 in x, x2 in x]
-# An Nx2 matrix when O[i,j] gives the overlap between filament i and focal adhesion j
-Oᵩ(x,f) = [max(l - abs(xi-fj), 0.0) for xi in x, fj in f]
-
-function plot_sim(x,y,t)
-    padding = L
-    X_span = (A-padding,B+padding) # Range for filament movement
-    # Set up domain
-    plot(xlims=X_span, ylims=(0,N+1), title="Time = $t")
-    # Display filaments
-    a = x[filaments] .- L/2 # Start of filaments
-    b = x[filaments] .+ L/2 # End of filaments
-    line_colour = reshape([p > 0 ? :blue : :red for p in P], 1, length(P)) # Polarity of filaments
-    plot!([a b]', [filaments filaments]', legend=false, lc=line_colour)
-    # Display motors and their attachments
-    for m = motors
-        af = y[m-N]
-        if isempty(af)
-            scatter!([x[m]], [0], markercolor=:black, markerstroke=0, markersize=3)
-        else
-            scatter!([x[m]], [mean(af)], markercolor=:black, markerstroke=0, markersize=3)
-            plot!([x[m];x[m]], [af[1];af[end]], legend=false, lc=:black)
-        end
-    end
-    # Display focal adhesions
-    N % 2 == 0 ? height = (N+1)/2 : height = N/2 # Ensure focal adhesions are not overlapping a filament
-    plot!([x[focal_adhesions[1]]-l/2 x[focal_adhesions[2]]-l/2;x[focal_adhesions[1]]+l/2 x[focal_adhesions[2]]+l/2], [height height; height height], legend=false, lc=:black, linewidth=2)
-    plot!(xlims=X_span, ylims=(0,N+1),show=true)
-    frame(anim)
-end
-
 # Energy functional where 
     # x...the next iterate (minimiser)
     # xn...the previous iterate
@@ -102,17 +33,15 @@ function E(x, xn, O_mat, Oᵩ_mat, y)
     return res
 end
 
-function calculate_motor_force(af,m,x,xn)
-    res = 0.0
-    for j in af
-        res += Fs/Vm * (x[j] - x[N+m] - (xn[j] - xn[N+m]))/Δt - Fs * P[j] 
-    end
-    return res
-end
+# Symmetric matrix where O[i,j] is the overlap between filament i and j and diagonal = 0 (filament can't overlap with self)
+O(x) = [x1 == x2 ? 0.0 : max(L - abs(x1-x2), 0.0) for x1 in x, x2 in x]
+# An Nx2 matrix when O[i,j] gives the overlap between filament i and focal adhesion j
+Oᵩ(x,f) = [max(l - abs(xi-fj), 0.0) for xi in x, fj in f]
 
 mf_overlap(xm,x1) = x1 - L/2 < xm < x1 + L/2 # Check if motor is touching a filament
 ma_interval(xm,x1,p) = p*(xm-x1) .+ [L/2 - υ, -L/2] # Distance motor is from drop off point and filament's opposite end
 
+# Generate attached filaments
 function gen_af(m,x)
     all_af = [n for n in filaments if mf_overlap(x[N+m],x[n])]
     length(all_af) ≥ 2 ? (return sort!(sample(all_af,2,replace=false))) : (return [])
@@ -164,76 +93,4 @@ function serialize_motor_connections(Y)
         end
     end
     return output * "]"
-end
-
-function main(PLOTSIM,WRITESIM,filename)
-    df = DataFrame(Time=Int64[], FilamentPos=Vector{Vector{Float64}}(), MotorPos=Vector{Vector{Float64}}(), FocalTesionPos=Vector{Vector{Float64}}(), MotorConnections=String[], ContractileForce=Float64[], Other=String[])
-    X = [vcat(B .* rand(N), B .* rand(M), A, B)] # Centre point of N filaments, M motors and focal adhesions centred at end points [A,B]
-    # X = [[0.25, 0.75, 0.5, A, B]]
-    Y = [[] for m in 1:M] # Y[m]...List of fibres attached to motor m
-    # Generate filament-motor connections
-    for m in sample(1:M,λ,replace=false)
-        Y[m] = gen_af(m, X[end])
-    end
-    # Y = [[1,2]]
-    contractile_force = [] # Contractile force between focal adhesions
-    mf = 0
-    # Evolve simulation
-    for t in 1:T
-        println("Iteration $t/$T")
-        cf = k * (X[end][focal_adhesions[2]] - X[end][focal_adhesions[1]] - (B - A)) # Calculate current contractile force between focal adhesions
-        if t > 1
-            # @show Fs/Vm * ((X[end][2]+X[end][1]-(X[end-1][2]+X[end-1][1])-2*(X[end][3]-X[end-1][3]))/Δt) 
-            #mf = ((X[end][2]-X[end][1]-(X[end-1][2]-X[end-1][1]))/Δt) * (Fs/Vm + 2*η*O(X[end][filaments])[1,2]) + 2*Fs # Calculate motor force of single motor
-        end
-        (WRITESIM && t!=1) && push!(df, (t, round.(X[end][filaments],digits=6), round.(X[end][motors],digits=6), round.(X[end][focal_adhesions],digits=6), serialize_motor_connections(Y), round(cf,sigdigits=6), isempty(Y[1]) ? "Motor dettached / Motor force $(mf)" : "Motor attached / Motor force $(mf)"))
-        push!(contractile_force, cf)
-        PLOTSIM && plot_sim(X[end],Y,t)
-        od = OnceDifferentiable(x -> E(x, X[end], O(X[end][filaments]), Oᵩ(X[end][filaments], X[end][focal_adhesions]), Y), X[end]; autodiff=:forward)
-        next_x = Optim.minimizer(optimize(od, X[end], LBFGS()))
-        push!(X, next_x)
-        Y = update_af(X[end],Y)
-    end
-    # Output results
-    PLOTSIM && gif(anim, "$(filename).gif", fps=5)
-    WRITESIM && CSV.write("$(filename).csv", df)
-    return contractile_force
 end;
-
-anim = Animation()
-# con = main(true,false,"pos");
-# plot(1:T,con,legend=false,title="")
-# savefig("params-rho-1-cf.png")
-
-
-conf = Vector{Vector{Float64}}()
-# global P = [1,-1]
-U = collect(0:0.1:L/2)
-for u in U
-    println("---Run $u---")
-    global anim = Animation()
-    global υ = u
-    # global P = rand((-1,1),N)
-    con = main(false,false,"many-motor-dropoff-small-eta-$u")
-    push!(conf,con)
-end
-plot(1:T,conf,title="Many Motor Varied Dropoff",xlabel="Time",ylabel="Contractile Force",legend=false)
-# savefig("sim-ex.png")
-
-# Threading
-# U = collect(0:0.1:L/2)
-# conf = Vector{Vector{Float64}}(undef,length(U))
-# Threads.@threads for i in eachindex(U)
-#     println("---Run $i---")
-#     global anim = Animation()
-#     global υ = U[i]
-#     # global P = rand((-1,1),N)
-#     conf[i] = main(true,false,"threads-$(U[i])")
-# end
-# Turnover, random filament movement (remove attached motors)
-# Longer stress fibre 10 μm
-
-# Computational study
-# Mean and variance of contractile force, with reference parameters
-# Then reduce/increase parameters (e.g. η vs cf)
-# Loess (regression) fit, 99% ci, R package spatialeco 

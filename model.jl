@@ -221,6 +221,15 @@ plot(1:T,conf,title="Many Motor Varied Dropoff",xlabel="Time",ylabel="Contractil
 # savefig("sim-ex.png")
 
 # Threading
+# U = collect(0:0.1:L/2)
+# conf = Vector{Vector{Float64}}(undef,length(U))
+# Threads.@threads for i in eachindex(U)
+#     println("---Run $i---")
+#     global anim = Animation()
+#     global υ = U[i]
+#     # global P = rand((-1,1),N)
+#     conf[i] = main(true,false,"threads-$(U[i])")
+# end
 # Turnover, random filament movement (remove attached motors)
 # Longer stress fibre 10 μm
 

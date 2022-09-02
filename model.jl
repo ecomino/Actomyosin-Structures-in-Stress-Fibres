@@ -1,3 +1,6 @@
+using Distributions: Bernoulli
+include("model-parameters.jl")
+
 # Energy functional where 
     # x...the next iterate (minimiser)
     # xn...the previous iterate
@@ -33,6 +36,26 @@ function E(x, xn, O_mat, Oᵩ_mat, y)
     return res
 end
 
+function reset_model()
+    X = Vector{Vector{Float64}}(undef, T+1)
+    X[1] = vcat(B .* rand(N), B .* rand(M), A, B) # Initial centre point of N filaments, M motors and focal adhesions centred at end points [A,B]
+    global filaments = 1:N
+    global motors = N+1:N+M
+    global focal_adhesions = N+M+1:N+M+2
+    global structure = [filaments; focal_adhesions]
+    global λ = floor(Int,0.75*M)
+    # X = [[0.25, 0.75, 0.5, A, B]]
+    Y = [[] for m in 1:M] # Y[m]...List of fibres attached to motor m
+    # Generate filament-motor connections
+    for m in sample(1:M,λ,replace=false)
+        Y[m] = gen_af(m, X[1])
+    end
+    # Y = [[1,2]]
+    cf = Vector{Float64}(undef,T+1) # Contractile force between focal adhesions at each time step
+    global P = rand((-1,1),N)
+    return X, Y, cf
+end
+
 # Symmetric matrix where O[i,j] is the overlap between filament i and j and diagonal = 0 (filament can't overlap with self)
 O(x) = [x1 == x2 ? 0.0 : max(L - abs(x1-x2), 0.0) for x1 in x, x2 in x]
 # An Nx2 matrix when O[i,j] gives the overlap between filament i and focal adhesion j
@@ -49,19 +72,12 @@ end
 
 # Update the filaments attached to each fibre, x stores position of N filaments and M motors, y stores the connections
 function update_af(x,y)
-    # Remove motor-filament attachments if they are no longer overlapping # or randomly
-    # for m in 1:M
-    #     if !isempty(y[m]) && (!attached(x[N+m],x[y[m][1]],x[y[m][end]]))# || rand() < β*Δt)
-    #         y[m] = []
-    #     end
-    # end
-
     for m in 1:M
         if !isempty(y[m]) # Check motor is attached to filaments
             for i in y[m] # Indexes of filaments connected to motor m
                 K, R = ma_interval(x[N+m],x[i],P[i]) # Interval that motor should be in to stay attached to filament
-                # Remove motor-filament attachments if the motor has passed the dropoff point or detached
-                if (K < 0) || (R > 0)
+                # Remove motor-filament attachments if the motor has passed the dropoff point, detached, or randomly
+                if (K < 0) || (R > 0) || rand(Bernoulli(β))
                     y[m] = []
                 end
             end
@@ -83,14 +99,10 @@ function update_af(x,y)
     return y # Updated list of motor-filament connections
 end
 
-function serialize_motor_connections(Y)
-    output = "[ "
-    for y in Y
-        if isempty(y)
-            output *= "[] "
-        else
-            output *= "[$(y[1]),$(y[2])] "
-        end
+function filament_turnover(x)
+    for i in 1:N
+        rand(Bernoulli(α)) && (x[i] = B * rand())
     end
-    return output * "]"
-end;
+    return x
+end
+

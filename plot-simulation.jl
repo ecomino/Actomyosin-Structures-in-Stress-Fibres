@@ -1,5 +1,4 @@
 using Plots, RCall
-include("model-parameters.jl")
 
 function plot_sim(x,y,t)
     padding = L
@@ -12,7 +11,7 @@ function plot_sim(x,y,t)
     line_colour = reshape([p > 0 ? :blue : :red for p in P], 1, length(P)) # Polarity of filaments
     plot!([a b]', [filaments filaments]', legend=false, lc=line_colour)
     # Display motors and their attachments
-    for m = motors
+    for m in motors
         af = y[m-N]
         if isempty(af)
             scatter!([x[m]], [0], markercolor=:black, markerstroke=0, markersize=3)
@@ -29,21 +28,21 @@ function plot_sim(x,y,t)
 end
 
 "Constructing LOESS Regression plot using RCall package, and LOESS Regression Package in R"
-function loess_plot(statistics::Vector{Vector{Float64}}, parN::Numerical_Parameters)
+function loess_plot(x_vec::Vector{Float64},y_vec::Vector{Float64}, param::String, filename::String)
     gr(); plot(); # Load GR plotting back-end and clear previous plots
-    mean_stats = mean(statistics); # Take time-averaged value across various trials
-    time::Vector{Float64} = (0:(parN.nT-1))*parN.dt;
-    @rput mean_stats time
+    @rput y_vec x_vec param filename
     R"""
     library(spatialEco)
-    loess_model = loess.ci(mean_stats, time, p=0.99, plot = FALSE, span=0.6)
-    plot(time, mean_stats, xlab="Time, t (s)", ylab="Contractile Force", main="LOESS regression")
-    lines(time, loess_model$loess, col="red")
-    lines(time, loess_model$uci, col="red", lty=2)
-    lines(time, loess_model$lci, col="red", lty=2)
-    polygon(x = c(time, rev(time)),
+    loess_model = loess.ci(y_vec, x_vec, p=0.99, plot = FALSE, span=0.6)
+    pdf(file = filename)
+    plot(x_vec, y_vec, log="x", xlab=param, ylab="Contractile Force", main="LOESS Regression")
+    lines(x_vec, loess_model$loess, col="red")
+    lines(x_vec, loess_model$uci, col="red", lty=2)
+    lines(x_vec, loess_model$lci, col="red", lty=2)
+    polygon(x = c(x_vec, rev(x_vec)),
             y = c(loess_model$lci,
                 rev(loess_model$uci)),
             col =  adjustcolor("red", alpha.f = 0.10), border = NA)
+    dev.off()
     """
 end;

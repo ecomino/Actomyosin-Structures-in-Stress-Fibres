@@ -44,15 +44,15 @@ function reset_model()
     global focal_adhesions = N+M+1:N+M+2
     global structure = [filaments; focal_adhesions]
     global λ = floor(Int,0.75*M)
-    # X = [[0.25, 0.75, 0.5, A, B]]
+    @assert υ ≤ L/2 && υ ≥ 0.0
     Y = [[] for m in 1:M] # Y[m]...List of fibres attached to motor m
     # Generate filament-motor connections
     for m in sample(1:M,λ,replace=false)
         Y[m] = gen_af(m, X[1])
     end
-    # Y = [[1,2]]
     cf = Vector{Float64}(undef,T+1) # Contractile force between focal adhesions at each time step
     global P = rand((-1,1),N)
+    global anim = Animation()
     return X, Y, cf
 end
 
@@ -67,7 +67,14 @@ ma_interval(xm,x1,p) = p*(xm-x1) .+ [L/2 - υ, -L/2] # Distance motor is from dr
 # Generate attached filaments
 function gen_af(m,x)
     all_af = [n for n in filaments if mf_overlap(x[N+m],x[n])]
-    length(all_af) ≥ 2 ? (return sort!(sample(all_af,2,replace=false))) : (return [])
+    sort!(all_af)
+    if length(all_af) ≥ 2
+        af = sample(all_af,2,replace=false)
+        if P[af[1]] != P[af[2]]
+            return af
+        end
+    end
+    return []
 end
 
 # Update the filaments attached to each fibre, x stores position of N filaments and M motors, y stores the connections
@@ -77,7 +84,7 @@ function update_af(x,y)
             for i in y[m] # Indexes of filaments connected to motor m
                 K, R = ma_interval(x[N+m],x[i],P[i]) # Interval that motor should be in to stay attached to filament
                 # Remove motor-filament attachments if the motor has passed the dropoff point, detached, or randomly
-                if (K < 0) || (R > 0) || rand(Bernoulli(β))
+                if (K < 0) || (R > 0)
                     y[m] = []
                 end
             end
@@ -99,10 +106,13 @@ function update_af(x,y)
     return y # Updated list of motor-filament connections
 end
 
-function filament_turnover(x)
-    for i in 1:N
+function turnover(x)
+    for i in filaments
         rand(Bernoulli(α)) && (x[i] = B * rand())
     end
+    for j in motors
+        rand(Bernoulli(β)) && (x[j] = B * rand())
+    end
     return x
-end
+end;
 

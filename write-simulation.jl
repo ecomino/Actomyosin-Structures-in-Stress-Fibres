@@ -20,4 +20,4 @@ function serialize_motor_connections(Y)
     return output * "]"
 end;
 
-sim_status(t,x,y,cf) = (t, round.(x[filaments],digits=6), round.(x[motors],digits=6), round.(x[focal_adhesions],digits=6), serialize_motor_connections(y), round(cf,sigdigits=6), "")
+sim_status(t,x,y,cf,f,m,a) = (t, round.(x[f],digits=6), round.(x[m],digits=6), round.(x[a],digits=6), serialize_motor_connections(y), round(cf,sigdigits=6), "")

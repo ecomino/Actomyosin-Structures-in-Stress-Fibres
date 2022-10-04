@@ -1,18 +1,18 @@
 using Plots, RCall
 
-function plot_sim(x,y,t)
-    padding = L
-    X_span = (A-padding,B+padding) # Range for filament movement
+function plot_sim(x,y,t,p)
+    padding = p.L
+    X_span = (p.A-padding,p.B+padding) # Range for filament movement
     # Set up domain
-    plot(xlims=X_span, ylims=(0,N+1), title="Time = $t")
+    plot(xlims=X_span, ylims=(0,p.N+1), title="Time = $t")
     # Display filaments
-    a = x[filaments] .- L/2 # Start of filaments
-    b = x[filaments] .+ L/2 # End of filaments
-    line_colour = reshape([p > 0 ? :blue : :red for p in P], 1, length(P)) # Polarity of filaments
-    plot!([a b]', [filaments filaments]', legend=false, lc=line_colour)
+    a = x[p.filaments] .- p.L/2 # Start of filaments
+    b = x[p.filaments] .+ p.L/2 # End of filaments
+    line_colour = reshape([pol > 0 ? :blue : :red for pol in p.P], 1, length(p.P)) # Polarity of filaments
+    plot!([a b]', [p.filaments p.filaments]', legend=false, lc=line_colour)
     # Display motors and their attachments
-    for m in motors
-        af = y[m-N]
+    for m in p.motors
+        af = y[m-p.N]
         if isempty(af)
             scatter!([x[m]], [0], markercolor=:black, markerstroke=0, markersize=3)
         else
@@ -21,10 +21,14 @@ function plot_sim(x,y,t)
         end
     end
     # Display focal adhesions
-    N % 2 == 0 ? height = (N+1)/2 : height = N/2 # Ensure focal adhesions are not overlapping a filament
-    plot!([x[focal_adhesions[1]]-l/2 x[focal_adhesions[2]]-l/2;x[focal_adhesions[1]]+l/2 x[focal_adhesions[2]]+l/2], [height height; height height], legend=false, lc=:black, linewidth=2)
+    p.N % 2 == 0 ? height = (p.N+1)/2 : height = p.N/2 # Ensure focal adhesions are not overlapping a filament
+    plot!([x[p.focal_adhesions[1]]-p.l/2 x[p.focal_adhesions[2]]-p.l/2;x[p.focal_adhesions[1]]+p.l/2 x[p.focal_adhesions[2]]+p.l/2], [height height; height height], legend=false, lc=:black, linewidth=2)
     plot!(show=true)
-    # frame(anim)
+end
+
+function save_sim(p)
+    frame(p.anim)
+    return p
 end
 
 "Constructing LOESS Regression plot using RCall package, and LOESS Regression Package in R"
@@ -65,17 +69,4 @@ function loess_plot_log(x_vec::Vector{Float64},y_vec::Vector{Float64}, param::St
             col =  adjustcolor("red", alpha.f = 0.10), border = NA)
     dev.off()
     """
-end;
-
-function movingaverage(X::Vector,numofele::Int)
-    BackDelta = div(numofele,2) 
-    ForwardDelta = isodd(numofele) ? div(numofele,2) : div(numofele,2) - 1
-    len = length(X)
-    Y = similar(X)
-    for n = 1:len
-        lo = max(1,n - BackDelta)
-        hi = min(len,n + ForwardDelta)
-        Y[n] = mean(X[lo:hi])
-    end
-    return Y
 end;

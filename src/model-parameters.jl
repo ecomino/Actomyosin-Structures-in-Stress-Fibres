@@ -9,7 +9,7 @@ Base.@kwdef mutable struct Parameters
     N::UInt16 = 20 # Number of actin filaments, use odd number to ensure they do not visually overlap with focal adhesions
     filaments::UnitRange{UInt16} = 1:N # Indexes of filaments
     L::Float64 = 2.0 # Length (μm) of filaments
-    P::Vector{Int64} = rand((-1,1),N) # Polarities of filaments, left to right 1 represents -ve to +ve
+    P::Vector{Int64} = rand((-1,1),N) # Polarities of filaments, 1 represents (left to right) minus end to plus end
     α::Float64 = 0.0 # Probability filament turns over
 
     # Motor parameters

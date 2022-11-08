@@ -18,7 +18,7 @@ function E(x, xn, O_mat, Oᵩ_mat, y, p)
             res += p.η * O_mat[i,j] * (x[i]-x[j]-(xn[i]-xn[j]))^2/(2*p.Δt) # Drag effect from cross linker proteins
         end
         for j in p.focal_adhesions
-            res += p.ρ * Oᵩ_mat[i,j-p.N-p.M] * (x[i]-x[j]-(xn[i]-xn[j]))^2/(2*p.Δt) # Drag due to "fixed" focal adhesions
+            res += p.ρ * Oᵩ_mat[i,j-p.N-p.M] * (x[i]-x[j]-(xn[i]-xn[j]))^2/(2*p.Δt) # Drag due to focal adhesions
         end
     end
     

@@ -32,7 +32,7 @@ function save_sim(p)
     return p
 end
 
-"Constructing LOESS Regression plot using RCall package, and LOESS Regression Package in R"
+# Constructing LOESS Regression plot using RCall package, and LOESS Regression Package in R
 function loess_plot(x_vec::Vector{Float64},y_vec::Vector{Float64}, param::String, filename::String)
     gr(); plot(); # Load GR plotting back-end and clear previous plots
     @rput y_vec x_vec param filename
@@ -52,7 +52,7 @@ function loess_plot(x_vec::Vector{Float64},y_vec::Vector{Float64}, param::String
     """
 end;
 
-"Constructing LOESS Regression plot using RCall package, and LOESS Regression Package in R"
+# Constructing LOESS Regression log plot using RCall package, and LOESS Regression Package in R
 function loess_plot_log(x_vec::Vector{Float64},y_vec::Vector{Float64}, param::String, filename::String)
     gr(); plot(); # Load GR plotting back-end and clear previous plots
     @rput y_vec x_vec param filename

@@ -2,8 +2,8 @@ include("main.jl")
 
 # Eta
 num_trials = 25 # Number of trials per parameter value
-param_vec = 10 .^ (-4:0.1:1) # Parameter test values to test
-# param_vec = collect(0.0:0.025:L/2)
+# param_vec = 10 .^ (-4:0.1:1) # Parameter test values to test
+# param_vec = collect(0.0:0.025:L)
 mean_cf_vec = Vector{Float64}(undef,length(param_vec)) # Mean steady contractile force for each parameter test value
 filename = "loess-eta/v1" # Label parameter test
 param_str = "eta" # Parameter label

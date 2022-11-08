@@ -1,62 +1,53 @@
 include("main.jl")
 
-cf = main(Parameters(),false,true,"no-more-globals!")
+cf = main(Parameters(T=1000, δ=1.5),true,false,"");
 
-# conf = []
-# for i = 1:5
-#     cf = main(true,false,"new-params-$i")
-#     push!(conf,cf)
-# end
-# plot(1:T,conf,title="Longer Fibre, More Filaments, More Motors",xlabel="Time",ylabel="Contractile Force",legend=false)
-# savefig("new-params-cf.pdf")
-
-# conf = []
-# for i in 1:3
-#     cf = main(false,false,"")
-#     push!(conf,cf)
-# end
-# plot(1:T,conf,title="N = 20 and B = 8.0",xlabel="Time",ylabel="Contractile Force",legend=false)
-# savefig("b-n-2.pdf")
-
-
-# I = [10, 20, 30, 40]
-# J = [4.0,6.0,8.0,10.0]
-# for j in J
-#     println("B = $j")
-#     global B = j
-#     for i in I
-#         println("M = $i")
-#         conf = []
-#         global M = i
-#         for k = 1:3
-#             cf = main(false,false,"M-$i")
-#             push!(conf,cf)
-#         end
-#         # plot(1:T,conf,title="η = $i and α = $j",xlabel="Time",ylabel="Contractile Force",labels=string.(I'),legend=:outerright)
-#         plot(1:T,conf,title="M = $i and B = $j",xlabel="Time",ylabel="Contractile Force",legend=false)
-#         savefig("M-$i-B-$j-cf.pdf")
-#     end
-# end
-
-num_trials = 10
-I = collect(0.0:0.2:1.8)
-J = 10 .^ (-4:0.5:0)
-heat = Matrix{Float64}(undef,length(I),length(J))
-for (ind_j, j) in enumerate(J)
-    print("β = $j... υ = ")
-    global β = j
-    for (ind_i,i) in enumerate(I)
-        print("$i,")
-        global υ = i
-        contractile_force_trials = Vector{Vector{Float64}}(undef, num_trials)
-        for k = 1:num_trials
-            contractile_force_trials[k] = main(false,false,"υ-$i")
-        end
-        steady_contractile_forces = mean.(contractile_force_trials)
-        heat[ind_i,ind_j] = mean(steady_contractile_forces)
-    end
-    println("done.")
+D = collect(0:0.1:0.6)
+conf = []
+for d in D
+    cf = main(Parameters(N = 2, M = 1, L = 1, B = 1.25, T=110, δ=d),false,false,"")
+    push!(conf,cf)
 end
-gr()
-heatmap(I,J, heat, c=cgrad([:red,:white]), xlabel="Motor Dropoff (δ)", ylabel="Motor Turnover (β)",title="Combined Effect of β and δ on Contractile Force",yaxis=:log)
-savefig("heat-beta-delta.pdf")
+labs = "δ = " .* string.(D')
+plot(1:110,conf,title="Varying Motor Drop-Off Distance δ",xlabel="Time",ylabel="Contractile Force",labels=labs)
+
+# t = 1:1000
+# cf, pos = main(Parameters(T=1000,α=0.001), false, true, "");
+# plot(pos,t,xlims=(0,8),lc=[:blue :blue :red :red],legend=false)
+# xlabel!("Position of Filament on Stress Fibre")
+# ylabel!("Time")
+# title!("Filament Movement (with turnover)")
+# num_trials = 10
+# I = collect(8:2:30)
+# means = Vector{Float64}(undef,length(I))
+# for (ind_i,i) in enumerate(I)
+#     print("$i...")
+#     contractile_force_trials = Vector{Vector{Float64}}(undef, num_trials)
+#     for k = 1:num_trials
+#         contractile_force_trials[k] = main(Parameters(M=i),false,false,"")
+#     end
+#     steady_contractile_forces = mean.(contractile_force_trials)
+#     means[ind_i] = mean(steady_contractile_forces)
+# end
+# scatter(I,means,xlabel="Number of Motors (M)",ylabel="Contractile Force",title="Effect of Number of Motors on Contractile Force",legend=false,ms=3,mc=:red,msw=0.01)
+
+# num_trials = 10
+# I = collect(10:10:40)
+# J = collect(4:2:10)
+# heat = Matrix{Float64}(undef,length(I),length(J))
+# for (ind_j, j) in enumerate(J)
+#     print("L = $j... N = ")
+#     for (ind_i,i) in enumerate(I)
+#         print("$i,")
+#         contractile_force_trials = Vector{Vector{Float64}}(undef, num_trials)
+#         for k = 1:num_trials
+#             contractile_force_trials[k] = main(Parameters(L=1,B=j,N=i,M=10,T=200),false,false,"")
+#         end
+#         steady_contractile_forces = mean.(contractile_force_trials)
+#         heat[ind_i,ind_j] = mean(steady_contractile_forces)
+#     end
+#     println("done.")
+# end
+# gr()
+# heatmap(I, J, heat, c=cgrad([:red,:white]), xlabel="Number of Filaments (N)", ylabel="Length of Stress Fibre (L)",title="Combined Effect of N and L on Contractile Force")
+# savefig("n-b-heat.pdf")

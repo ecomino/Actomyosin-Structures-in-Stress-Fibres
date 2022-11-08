@@ -5,7 +5,7 @@ include("model-parameters.jl")
 include("model.jl")
 include("plot-simulation.jl")
 
-# Simulate stress fibre with specified parameters, choosing whether to visualise the sim and/or save it as a gif (plotting is required to write)
+# Simulate a stress fibre with specified parameters, choosing whether to visualise the sim and/or save it as a gif (plotting is required to write)
 function main(params::Parameters,PLOTSIM::Bool=false,WRITESIM::Bool=false,filename::String="")
     # Set up simulation
     X, Y, contractile_force, params = reset_model(params)

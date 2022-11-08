@@ -1,3 +1,4 @@
-#  Actomyosin Structures in Fibroblasts
+#  Minimal Microscopic Model for the Contraction of Stress Fibres
+*Abstract:* Stress fibres are contractile filament bundles in many non-muscle cells. Consisting of polarised actin filaments, myosin motors and cross-linking proteins, these components work together to facilitate cell movement. However, the network structure of stress fibres in many cell types is relatively random, and it is not well understood what asymmetries are present that could cause contractile behaviours to be favoured over expansive. We propose an overdamped one-dimensional particle model for actin filaments and myosin motor proteins. This allows us to computationally explore a minimal model for contraction, by which myosin slides off rapidly when approaching the plus ends of actin filaments. Full thesis can be found [here](https://github.com/ecomino/Actomyosin-Structures-in-Stress-Fibres/blob/main/StressFibres_CominoOelz_2022.pdf).
 
-Code base for honours thesis
+As an overview of this repo, you can find how our simulation has been defined in `src`. Examples of using it are given in `single-run.jl`, and further examples for constructing the LOESS regressions and heat maps like in my thesis can be found in `parameter-testing.jl`. The output from these demonstration files is given in `example-figures`. 
